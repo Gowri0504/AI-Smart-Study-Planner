@@ -1,0 +1,177 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  // Profile features
+  skillLevel    String?   @default("beginner") // beginner / intermediate / advanced
+  studyHours    Int?      @default(2) // daily hours
+  learningStyle String?   @default("visual") // visual, reading, practice
+
+  subjects      Subject[]
+  schedules     Schedule[]
+  tasks         Task[]
+  sessions_data StudySession[]
+  goals         Goal[]
+  revisions     Revision[]
+  achievements  Achievement[]
+  studyGroups   StudyGroupMember[]
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // STREAK, COMPLETION, FOCUS
+  title       String
+  description String
+  unlockedAt  DateTime @default(now())
+}
+
+model StudyGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  members     StudyGroupMember[]
+  createdAt   DateTime @default(now())
+}
+
+model StudyGroupMember {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId     String
+  group       StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  role        String   @default("MEMBER") // ADMIN, MEMBER
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  name        String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  difficulty  Int      @default(1) // 1-5
+  topics      Topic[]
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+}
+
+model Topic {
+  id          String   @id @default(cuid())
+  name        String
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  completed   Boolean  @default(false)
+  importance  Int      @default(1) // 1-5
+  revisions   Revision[]
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  priority    Int      @default(1) // 1-5
+  deadline    DateTime?
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Schedule {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int      // 0-6
+  startTime   String   // HH:mm
+  endTime     String   // HH:mm
+  taskName    String?
+}
+
+model StudySession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  duration    Int?     // in minutes
+  focusScore  Int?     // 1-100
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  targetDate  DateTime
+  completed   Boolean  @default(false)
+}
+
+model Revision {
+  id          String   @id @default(cuid())
+  topicId     String
+  topic       Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledAt DateTime
+  completedAt DateTime?
+  
+  // SM-2 Spaced Repetition Parameters
+  interval    Float    @default(1) // Days until next review
+  repetition  Int      @default(0) // Number of successful reviews
+  easeFactor  Float    @default(2.5) // Difficulty multiplier
+}
